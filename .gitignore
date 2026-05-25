@@ -5,7 +5,52 @@ __pycache__/
 
 # C extensions
 *.so
+```gitignore
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.python-version
 
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+.next/
+dist/
+build/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Data
+data/raw/
+*.csv
+*.parquet
+*.db
+*.sqlite
+
+# Scrapy
+.scrapy/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notebook
+.ipynb_checkpoints/
+
+# dbt
+dbt_packages/
+logs/
+target/
+```
 # Distribution / packaging
 .Python
 build/
