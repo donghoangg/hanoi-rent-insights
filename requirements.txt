@@ -1,0 +1,59 @@
+# ============================================================
+# HanoiRent Insights — Python Dependencies
+# ============================================================
+# Cài đặt:
+#   pip install -r requirements.txt
+#   playwright install chromium   (chỉ cần cho batdongsan spider)
+#
+# Hoặc dùng uv (nhanh hơn):
+#   uv pip install -r requirements.txt
+# ============================================================
+
+# ── Core ─────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Scraping ─────────────────────────────────────────────────
+Scrapy>=2.11.0
+scrapy-playwright>=0.0.34         # Playwright integration cho Scrapy
+playwright>=1.43.0                # Browser automation
+fake-useragent>=1.5.0             # Bổ sung user-agent (optional)
+
+# ── Database ─────────────────────────────────────────────────
+psycopg2-binary>=2.9.9            # PostgreSQL adapter
+SQLAlchemy>=2.0.0                 # ORM (dùng cho ETL)
+
+# ── Supabase ─────────────────────────────────────────────────
+supabase>=2.4.0                   # Supabase Python client
+
+# ── Image processing ─────────────────────────────────────────
+Pillow>=10.3.0                    # Resize + compress thumbnail
+requests>=2.31.0                  # HTTP requests cho thumbnail download
+
+# ── ETL & Data ────────────────────────────────────────────────
+pandas>=2.2.0                     # Data manipulation
+numpy>=1.26.0
+
+# ── Geocoding ────────────────────────────────────────────────
+geopy>=2.4.0                      # Nominatim geocoding (OpenStreetMap)
+
+# ── dbt (lớp Gold) ───────────────────────────────────────────
+dbt-core>=1.7.0
+dbt-postgres>=1.7.0
+
+# ── Dashboard ────────────────────────────────────────────────
+streamlit>=1.35.0
+plotly>=5.22.0
+folium>=0.16.0                    # Map cho Streamlit (thay thế Leaflet)
+streamlit-folium>=0.20.0
+
+# ── Backend API ──────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+
+# ── Dev & Testing ─────────────────────────────────────────────
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0                     # Test FastAPI
+ipykernel>=6.29.0                 # Jupyter notebooks
+jupyter>=1.0.0
