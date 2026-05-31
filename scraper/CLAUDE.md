@@ -128,7 +128,7 @@ price_vnd        # int: VND/tháng
 area_m2          # float: m²
 bedrooms         # int | None
 bathrooms        # int | None
-property_type    # 'phong_tro'|'chung_cu'|'nha_nguyen_can'|'can_ho_dich_vu'
+property0_type    # 'phong_tro'|'chung_cu'|'nha_nguyen_can'|'can_ho_dich_vu'
 furnishing_level # 'bare'|'partial'|'full'|'luxury' | None  ← THÊM session này
 amenities        # list[str] | None  ← THÊM session này (NLP ở Silver ETL)
 address          # str: địa chỉ thô

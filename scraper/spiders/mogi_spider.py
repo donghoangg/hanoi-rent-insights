@@ -401,4 +401,10 @@ class MogiSpider(scrapy.Spider):
         # "dd/mm/yyyy"
         match = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", date_text)
         if match:
-            d, m
+            d, m, y = match.groups()
+            try:
+                return date(int(y), int(m), int(d)).isoformat()
+            except ValueError:
+                pass
+
+        return date_text
