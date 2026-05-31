@@ -67,6 +67,8 @@ FURNISHING_MAP = {
 }
 
 # Mapping quận Hà Nội (area_v2 code → tên quận)
+# [DEPRECATED] Bảng tra quận cũ — chỉ dùng để ánh xạ địa danh cũ→mới ở tầng Silver.
+# Theo địa giới 2 cấp (01/07/2025) không còn dùng quận; province lấy từ region_name.
 DISTRICT_MAP = {
     "12100": "Ba Đình",
     "12101": "Hoàn Kiếm",
@@ -237,7 +239,7 @@ class NhatotSpider(scrapy.Spider):
 
         # ── Extract fields ──────────────────────────────────────
         price_vnd = self._extract_price(ad, list_data)
-        district = self._extract_district(ad, list_data)
+        province = self._extract_province(ad, list_data)
         ward = self._extract_ward(ad, list_data)
         property_type = self._extract_property_type(ad, list_data, cg)
         furnishing_level = self._extract_furnishing(ad, list_data)
@@ -290,7 +292,7 @@ class NhatotSpider(scrapy.Spider):
             property_type=property_type,
             furnishing_level=furnishing_level,
             address=address,
-            district=district,
+            province=province,
             ward=ward,
             thumbnail_url=thumbnail_url,
             image_urls=image_urls,
@@ -331,14 +333,15 @@ class NhatotSpider(scrapy.Spider):
         except (ValueError, TypeError):
             return None
 
-    def _extract_district(self, ad: dict, list_data: dict) -> str | None:
-        # Ưu tiên tên text từ area_name
-        area_name = ad.get("area_name") or list_data.get("area_name")
-        if area_name and isinstance(area_name, str):
-            return area_name.strip()
-        # Fallback: tra bảng area_v2 code
-        area_code = str(ad.get("area_v2") or ad.get("area") or list_data.get("area_v2") or "")
-        return DISTRICT_MAP.get(area_code)
+    def _extract_province(self, ad: dict, list_data: dict) -> str | None:
+        """
+        Cấp tỉnh (province) theo địa giới 2 cấp.
+        Nhatot trả region_name (vd 'Hà Nội'); area_name (quận cũ) giữ trong raw_payload.
+        """
+        region_name = ad.get("region_name") or list_data.get("region_name")
+        if region_name and isinstance(region_name, str):
+            return region_name.strip()
+        return "Hà Nội"  # spider chỉ cào region_v2=12000 (Hà Nội)
 
     def _extract_ward(self, ad: dict, list_data: dict) -> str | None:
         ward = ad.get("ward_name") or list_data.get("ward_name")

@@ -59,6 +59,8 @@ PROPERTY_TYPE_MAP = {
 }
 
 # Tên quận Hà Nội để normalize
+# [DEPRECATED] Danh sách quận cũ — giữ tạm để ánh xạ địa danh cũ→mới ở tầng Silver.
+# Theo địa giới 2 cấp (01/07/2025) không còn dùng quận.
 HANOI_DISTRICTS = [
     "Ba Đình", "Hoàn Kiếm", "Hai Bà Trưng", "Đống Đa", "Tây Hồ",
     "Cầu Giấy", "Thanh Xuân", "Hoàng Mai", "Long Biên", "Nam Từ Liêm",
@@ -133,7 +135,7 @@ class MogiSpider(scrapy.Spider):
                 "title": listing.css("h2.prop-title::text, h3.prop-title::text").get("").strip(),
                 "price_text": listing.css("strong.price::text, div.price::text").get("").strip(),
                 "area_text": listing.css("span.area::text").get("").strip(),
-                "district_text": listing.css("span.district::text, div.location::text").get("").strip(),
+                "location_text": listing.css("span.district::text, div.location::text").get("").strip(),
             }
 
             yield scrapy.Request(
@@ -221,7 +223,7 @@ class MogiSpider(scrapy.Spider):
             or response.css("[itemprop='address']::text").get()
             or ""
         ).strip()
-        district = self._extract_district(address or preview.get("district_text", ""))
+        province = self._extract_province(address)
         ward = self._extract_ward(address)
 
         # ── Ảnh ──────────────────────────────────────────────────
@@ -266,7 +268,7 @@ class MogiSpider(scrapy.Spider):
             property_type=property_type,
             furnishing_level=furnishing_level,
             address=address,
-            district=district,
+            province=province,
             ward=ward,
             thumbnail_url=thumbnail_url,
             image_urls=image_urls,
@@ -344,28 +346,33 @@ class MogiSpider(scrapy.Spider):
             return "bare"
         return "partial"  # Mogi thường liệt kê nội thất có sẵn
 
-    def _extract_district(self, address: str) -> str | None:
+    def _extract_province(self, address: str) -> str | None:
+        """
+        Cấp tỉnh (Tỉnh/TP) theo địa giới 2 cấp — phần tử cuối của địa chỉ.
+        Spider này cào ha-noi nên mặc định 'Hà Nội' nếu không tách được.
+        """
         if not address:
-            return None
-        for district in HANOI_DISTRICTS:
-            if district.lower() in address.lower():
-                return district
-        # Fallback: lấy phần cuối địa chỉ
-        parts = [p.strip() for p in address.split(",")]
-        if parts:
-            return parts[-1] if parts[-1] else None
-        return None
+            return "Hà Nội"
+        parts = [p.strip() for p in address.split(",") if p.strip()]
+        return parts[-1] if parts else "Hà Nội"
 
     def _extract_ward(self, address: str) -> str | None:
+        """
+        Cấp xã (Phường/Xã). Ưu tiên phần có từ khoá phường/xã/thị trấn.
+        Ánh xạ địa danh cũ→mới (2 cấp) xử lý tiếp ở tầng Silver.
+        """
         if not address:
             return None
-        parts = [p.strip() for p in address.split(",")]
-        # Ward thường là phần thứ 2 từ cuối
-        if len(parts) >= 2:
-            ward = parts[-2]
-            # Check có phải tên phường không (chứa "phường" hoặc có ít hơn 5 từ)
-            if ward and len(ward.split()) <= 5:
-                return ward
+        parts = [p.strip() for p in address.split(",") if p.strip()]
+        for part in parts:
+            low = part.lower()
+            if low.startswith("phường") or low.startswith("xã") \
+               or low.startswith("p.") or low.startswith("thị trấn") \
+               or low.startswith("tt "):
+                return part
+        # Fallback: phần thứ 2 từ cuối nếu ngắn gọn
+        if len(parts) >= 2 and len(parts[-2].split()) <= 5:
+            return parts[-2]
         return None
 
     def _parse_int(self, text: str | None) -> int | None:
@@ -394,10 +401,4 @@ class MogiSpider(scrapy.Spider):
         # "dd/mm/yyyy"
         match = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", date_text)
         if match:
-            d, m, y = match.groups()
-            try:
-                return date(int(y), int(m), int(d)).isoformat()
-            except ValueError:
-                pass
-
-        return date_text
+            d, m

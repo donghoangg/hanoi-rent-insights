@@ -23,7 +23,7 @@ LƯU Ý: Spider này dùng Playwright nên cần cài:
 
 import json
 import re
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from typing import Any, Generator
 
 import scrapy
@@ -319,9 +319,11 @@ class BatdongsanSpider(scrapy.Spider):
                 or detail.get("address")
                 or ""
             ).strip()
-            district = (
-                detail.get("districtName")
-                or self._extract_district(address)
+            # Địa giới 2 cấp: province (tỉnh/TP) + ward (phường/xã), bỏ quận
+            province = (
+                detail.get("cityName")
+                or detail.get("provinceName")
+                or self._extract_province(address)
             )
             ward = detail.get("wardName") or self._extract_ward(address)
 
@@ -356,7 +358,7 @@ class BatdongsanSpider(scrapy.Spider):
                 property_type=property_type,
                 furnishing_level=furnishing_level,
                 address=address,
-                district=district,
+                province=province,
                 ward=ward,
                 thumbnail_url=thumbnail_url,
                 image_urls=image_urls,
@@ -423,7 +425,7 @@ class BatdongsanSpider(scrapy.Spider):
             or response.css("div.re__pr-address span::text").get()
             or ""
         ).strip()
-        district = self._extract_district(address)
+        province = self._extract_province(address)
         ward = self._extract_ward(address)
 
         description = " ".join(
@@ -458,7 +460,7 @@ class BatdongsanSpider(scrapy.Spider):
             property_type=property_type,
             furnishing_level=furnishing_level,
             address=address,
-            district=district,
+            province=province,
             ward=ward,
             thumbnail_url=thumbnail_url,
             image_urls=image_urls,
@@ -551,20 +553,26 @@ class BatdongsanSpider(scrapy.Spider):
             return "partial"  # Có mention nội thất nhưng không rõ → partial
         return None
 
-    def _extract_district(self, address: str) -> str | None:
+    def _extract_province(self, address: str) -> str | None:
+        """Cấp tỉnh (Tỉnh/TP) — phần tử cuối của địa chỉ; mặc định Hà Nội."""
         if not address:
-            return None
-        for district in HANOI_DISTRICTS:
-            if district.lower() in address.lower():
-                return district
-        return None
+            return "Hà Nội"
+        parts = [p.strip() for p in address.split(",") if p.strip()]
+        return parts[-1] if parts else "Hà Nội"
 
     def _extract_ward(self, address: str) -> str | None:
+        """Cấp xã (Phường/Xã). Ánh xạ địa danh cũ→mới xử lý ở tầng Silver."""
         if not address:
             return None
-        parts = [p.strip() for p in address.split(",")]
-        if len(parts) >= 2:
-            return parts[-2] if parts[-2] else None
+        parts = [p.strip() for p in address.split(",") if p.strip()]
+        for part in parts:
+            low = part.lower()
+            if low.startswith("phường") or low.startswith("xã") \
+               or low.startswith("p.") or low.startswith("thị trấn") \
+               or low.startswith("tt "):
+                return part
+        if len(parts) >= 2 and len(parts[-2].split()) <= 5:
+            return parts[-2]
         return None
 
     def _parse_int_text(self, text: str | None) -> int | None:
@@ -574,6 +582,11 @@ class BatdongsanSpider(scrapy.Spider):
         return int(match.group()) if match else None
 
     def _parse_date(self, text: Any) -> str | None:
+        """
+        Chuẩn hoá ngày đăng về dạng ISO 'YYYY-MM-DD'.
+        Hỗ trợ: ISO sẵn, timestamp (ms/s), 'dd/mm/yyyy', và ngày tương đối
+        kiểu 'Hôm nay' / 'Hôm qua' / 'N ngày trước' (trừ từ ngày hiện tại).
+        """
         if not text:
             return None
         text = str(text).strip()
@@ -598,13 +611,27 @@ class BatdongsanSpider(scrapy.Spider):
             except Exception:
                 pass
 
-        # "dd/mm/yyyy"
-        match = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
-        if match:
-            d, m, y = match.groups()
+        low = text.lower()
+
+        # Ngày tương đối
+        if "hôm nay" in low:
+            return date.today().isoformat()
+        if "hôm qua" in low:
+            return (date.today() - timedelta(days=1)).isoformat()
+        m = re.search(r"(\d+)\s*ngày\s*trước", low)
+        if m:
+            return (date.today() - timedelta(days=int(m.group(1)))).isoformat()
+        m = re.search(r"(\d+)\s*tuần\s*trước", low)
+        if m:
+            return (date.today() - timedelta(weeks=int(m.group(1)))).isoformat()
+
+        # dd/mm/yyyy
+        m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
+        if m:
+            d, mth, y = m.groups()
             try:
-                return date(int(y), int(m), int(d)).isoformat()
+                return date(int(y), int(mth), int(d)).isoformat()
             except ValueError:
                 pass
 
-        return text
+        return None

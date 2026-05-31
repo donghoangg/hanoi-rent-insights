@@ -17,16 +17,17 @@ class RentingItem(scrapy.Item):
     title           = scrapy.Field()  # str
     description     = scrapy.Field()  # str
     price_vnd       = scrapy.Field()  # int: giá VND/tháng
+    deposit_vnd     = scrapy.Field()  # int | None: tiền cọc VND
     area_m2         = scrapy.Field()  # float: diện tích m²
     bedrooms        = scrapy.Field()  # int | None
     bathrooms       = scrapy.Field()  # int | None
-    property_type   = scrapy.Field()  # str: 'phong_tro' | 'chung_cu' | 'nha_nguyen_can' | 'can_ho_dich_vu'
+    property_type   = scrapy.Field()  # str: 'phong_tro' | 'chung_cu_mini' | 'chung_cu' | 'nha_nguyen_can' | 'khac'
     furnishing_level = scrapy.Field() # str | None: 'bare' | 'partial' | 'full' | 'luxury'
 
-    # --- Địa chỉ ---
+    # --- Địa chỉ (địa giới 2 cấp: tỉnh + xã, bỏ quận/huyện) ---
     address     = scrapy.Field()      # str: địa chỉ đầy đủ thô
-    district    = scrapy.Field()      # str: tên quận đã chuẩn hoá
-    ward        = scrapy.Field()      # str | None: tên phường
+    province    = scrapy.Field()      # str: cấp tỉnh ('Hà Nội', 'TP Hồ Chí Minh', ...)
+    ward        = scrapy.Field()      # str | None: cấp xã (phường/xã)
 
     # --- Ảnh ---
     thumbnail_url   = scrapy.Field()  # str | None: URL ảnh đầu tiên (thumbnail)
@@ -40,3 +41,8 @@ class RentingItem(scrapy.Item):
 
     # --- Raw payload (lưu vào bronze) ---
     raw_payload = scrapy.Field()      # dict: toàn bộ data thô gốc
+
+    # --- Cờ nội bộ pipeline (không ghi ra ngoài) ---
+    _quarantine     = scrapy.Field()  # bool: True nếu tin bị cách ly
+    _error_reason   = scrapy.Field()  # str: lý do cách ly
+    _missing_fields = scrapy.Field()  # list[str]: các trường bắt buộc bị thiếu
