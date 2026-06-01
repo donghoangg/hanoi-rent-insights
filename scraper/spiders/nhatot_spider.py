@@ -145,7 +145,7 @@ class NhatotSpider(scrapy.Spider):
             self.MAX_PAGES = int(max_pages)
 
     # ── Entry point ─────────────────────────────────────────────
-    def start_requests(self):
+    async def start(self):
         """Bắt đầu từ trang 1 của từng category cho thuê."""
         for cat in RENTAL_CATEGORIES:
             yield self._make_list_request(cg=cat["cg"], st=cat["st"], page=1)

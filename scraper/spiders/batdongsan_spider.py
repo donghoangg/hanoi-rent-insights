@@ -79,7 +79,9 @@ class BatdongsanSpider(scrapy.Spider):
     custom_settings = {
         "DOWNLOAD_DELAY": 2.5,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 2,
-        # Playwright cần twisted asyncio reactor (đã set trong settings.py)
+        "DOWNLOAD_HANDLERS": {
+            "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+        },
     }
 
     def __init__(self, max_pages: int = None, *args, **kwargs):
@@ -88,7 +90,7 @@ class BatdongsanSpider(scrapy.Spider):
             self.MAX_PAGES = int(max_pages)
 
     # ── Entry point ─────────────────────────────────────────────
-    def start_requests(self):
+    async def start(self):
         """Bắt đầu từ trang 1 của từng category cho thuê."""
         for url_template in RENTAL_LIST_URLS:
             yield self._make_list_request(url_template=url_template, page=1)

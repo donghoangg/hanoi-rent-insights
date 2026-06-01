@@ -88,7 +88,7 @@ class MogiSpider(scrapy.Spider):
             self.MAX_PAGES = int(max_pages)
 
     # ── Entry point ─────────────────────────────────────────────
-    def start_requests(self):
+    async def start(self):
         """Bắt đầu từ trang 1 của từng category cho thuê."""
         for url_template in RENTAL_LIST_URLS:
             yield scrapy.Request(

@@ -65,14 +65,16 @@ DOWNLOADER_MIDDLEWARES = {
     "scraper.middlewares.RandomUserAgentMiddleware": 400,
     # Custom retry (bổ sung thêm logic)
     "scraper.middlewares.SmartRetryMiddleware": 550,
-    # Playwright middleware (chỉ active khi spider dùng playwright)
-    "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler": None,
 }
 
-DOWNLOAD_HANDLERS = {
-    "http":  "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-}
+# DOWNLOAD_HANDLERS: Playwright chỉ được kích hoạt khi spider tự set
+# meta={"playwright": True} trong Request. Không route toàn bộ qua Playwright
+# vì các spider dùng JSON API (nhatot, mogi) không cần browser.
+# Spider nào cần Playwright thì tự override trong custom_settings:
+#   DOWNLOAD_HANDLERS = {
+#       "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+#   }
+DOWNLOAD_HANDLERS = {}
 
 # --- Playwright config ---
 PLAYWRIGHT_BROWSER_TYPE = "chromium"
