@@ -14,10 +14,8 @@ python-dotenv>=1.0.0
 
 # ── Scraping ─────────────────────────────────────────────────
 Scrapy>=2.11.0
-scrapy-playwright>=0.0.34         # Playwright integration cho Scrapy
-playwright>=1.43.0                # Browser automation
 fake-useragent>=1.5.0             # Bổ sung user-agent (optional)
-
+brotli>=1.1.0                    # Compression for responses
 # ── Database ─────────────────────────────────────────────────
 psycopg2-binary>=2.9.9            # PostgreSQL adapter
 SQLAlchemy>=2.0.0                 # ORM (dùng cho ETL)

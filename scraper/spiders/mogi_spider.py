@@ -26,13 +26,11 @@ from ..items import RentingItem
 # Các URL cho thuê trên Mogi.vn — chỉ lấy tin cho thuê Hà Nội
 # ──────────────────────────────────────────────────────────────
 RENTAL_LIST_URLS = [
-    "https://mogi.vn/ha-noi/cho-thue-phong-tro?p={page}",   # Phòng trọ / nhà trọ
-    "https://mogi.vn/ha-noi/cho-thue-nha?p={page}",          # Nhà nguyên căn
-    "https://mogi.vn/ha-noi/cho-thue-can-ho?p={page}",       # Căn hộ / chung cư
+    "https://mogi.vn/ha-noi/thue-phong-tro-nha-tro?cp={page}",  # Phòng trọ / nhà trọ
 ]
 
 # Slug prefix → dấu hiệu là tin cho thuê (guard)
-RENTAL_URL_KEYWORDS = ("cho-thue", "thue-phong", "phong-tro")
+RENTAL_URL_KEYWORDS = ("cho-thue", "thue-phong", "phong-tro", "thue-phong-tro", "thue-nha-tro", "thue-phong-tro-khu-nha-tro")
 
 # Slug → property_type mapping (dùng cho URL-based detection)
 SLUG_TO_PROPERTY_TYPE = {
@@ -104,10 +102,10 @@ class MogiSpider(scrapy.Spider):
         url_template = response.meta["url_template"]
 
         # Selector các card tin đăng
-        listings = response.css("ul.prop-list li.prop-item")
+        listings = response.css("ul.props li")
         if not listings:
-            # Thử selector dự phòng
-            listings = response.css("div.property-list div.property-item")
+            # Fallback selector cũ
+            listings = response.css("ul.prop-list li.prop-item")
 
         if not listings:
             self.logger.warning("No listings on page %d — check selectors: %s", current_page, response.url)
@@ -126,16 +124,17 @@ class MogiSpider(scrapy.Spider):
                 detail_url = f"https://mogi.vn{detail_url}"
 
             # Guard sơ bộ: URL phải chứa từ khóa cho thuê
-            if not any(kw in detail_url for kw in RENTAL_URL_KEYWORDS):
-                self.logger.debug("Skip non-rental URL: %s", detail_url)
-                continue
+            # (tạm bỏ để debug số lượng detail request)
+            # if not any(kw in detail_url for kw in RENTAL_URL_KEYWORDS):
+            #     self.logger.debug("Skip non-rental URL: %s", detail_url)
+            #     continue
 
             # Extract preview data từ list để có fallback nếu detail chậm
             preview = {
                 "title": listing.css("h2.prop-title::text, h3.prop-title::text").get("").strip(),
-                "price_text": listing.css("strong.price::text, div.price::text").get("").strip(),
-                "area_text": listing.css("span.area::text").get("").strip(),
-                "location_text": listing.css("span.district::text, div.location::text").get("").strip(),
+                "price_text": listing.css("div.price::text, strong.price::text").get("").strip(),
+                "area_text": listing.css("span.area::text, ul.prop-attr li::text").get("").strip(),
+                "location_text": listing.css("div.prop-addr::text").get("").strip(),
             }
 
             yield scrapy.Request(
@@ -167,7 +166,8 @@ class MogiSpider(scrapy.Spider):
 
         # ── Title ────────────────────────────────────────────────
         title = (
-            response.css("h1.prop-title::text").get()
+            response.css("div.title h1::text").get()
+            or response.css("h1.prop-title::text").get()
             or response.css("h1[itemprop='name']::text").get()
             or preview.get("title")
             or ""
@@ -175,9 +175,9 @@ class MogiSpider(scrapy.Spider):
 
         # ── Giá ─────────────────────────────────────────────────
         price_text = (
-            response.css("strong.price::text").get()
+            response.css("div.price::text").get()
+            or response.css("strong.price::text").get()
             or response.css("[itemprop='price']::text").get()
-            or response.css("div.price span::text").get()
             or preview.get("price_text")
             or ""
         )
@@ -185,8 +185,8 @@ class MogiSpider(scrapy.Spider):
 
         # ── Diện tích ────────────────────────────────────────────
         area_text = (
-            response.css("span.info-item:contains('Diện tích') strong::text").get()
-            or response.css("[itemprop='floorSize']::text").get()
+            response.css("div.info-attrs li:contains('Diện tích') span::text").get()
+            or response.css("span.info-item:contains('Diện tích') strong::text").get()
             or preview.get("area_text")
             or ""
         )
@@ -194,7 +194,8 @@ class MogiSpider(scrapy.Spider):
 
         # ── Loại hình ────────────────────────────────────────────
         prop_type_text = (
-            response.css("span.info-item:contains('Loại') strong::text").get()
+            response.css("div.info-attrs li:contains('Loại') span::text").get()
+            or response.css("span.info-item:contains('Loại') strong::text").get()
             or response.css("a.prop-type::text").get()
             or ""
         ).strip().lower()
@@ -202,24 +203,27 @@ class MogiSpider(scrapy.Spider):
 
         # ── Nội thất ────────────────────────────────────────────
         furnishing_text = (
-            response.css("span.info-item:contains('Nội thất') strong::text").get()
-            or response.css("span.info-item:contains('nội thất') strong::text").get()
+            response.css("div.info-attrs li:contains('Nội thất') span::text").get()
+            or response.css("span.info-item:contains('Nội thất') strong::text").get()
             or ""
         ).strip().lower()
         furnishing_level = self._map_furnishing(furnishing_text)
 
         # ── Phòng ngủ / phòng tắm ────────────────────────────────
         bedrooms = self._parse_int(
-            response.css("span.info-item:contains('Phòng ngủ') strong::text").get()
+            response.css("div.info-attrs li:contains('Phòng ngủ') span::text").get()
+            or response.css("span.info-item:contains('Phòng ngủ') strong::text").get()
         )
         bathrooms = self._parse_int(
-            response.css("span.info-item:contains('Phòng tắm') strong::text").get()
+            response.css("div.info-attrs li:contains('Phòng tắm') span::text").get()
+            or response.css("span.info-item:contains('Phòng tắm') strong::text").get()
             or response.css("span.info-item:contains('Toilet') strong::text").get()
         )
 
         # ── Địa chỉ ─────────────────────────────────────────────
         address = (
-            response.css("div.prop-address span::text").get()
+            response.css("div.address::text").get()
+            or response.css("div.prop-address span::text").get()
             or response.css("[itemprop='address']::text").get()
             or ""
         ).strip()
@@ -228,16 +232,16 @@ class MogiSpider(scrapy.Spider):
 
         # ── Ảnh ──────────────────────────────────────────────────
         image_urls = response.css(
-            "div.gallery img::attr(data-src), "
-            "div.gallery img::attr(src), "
-            "div.slide img::attr(src)"
+            "div#gallery div.media-item img::attr(src), "
+            "div#top-media div.owl-item img::attr(src), "
+            "div.gallery img::attr(src)"
         ).getall()
         image_urls = [u for u in image_urls if u and u.startswith("http")]
         thumbnail_url = image_urls[0] if image_urls else None
 
         # ── Mô tả ────────────────────────────────────────────────
         description = " ".join(
-            response.css("div.prop-description *::text").getall()
+            response.css("div.info-content-body *::text, div.prop-description *::text").getall()
         ).strip()
 
         # ── Ngày đăng ────────────────────────────────────────────
@@ -250,6 +254,7 @@ class MogiSpider(scrapy.Spider):
             "price_text": price_text,
             "area_text": area_text,
             "address": address,
+            "description": description,
             "prop_type_text": prop_type_text,
             "image_count": len(image_urls),
             "scraped_at": datetime.utcnow().isoformat(),
@@ -280,8 +285,11 @@ class MogiSpider(scrapy.Spider):
 
     def _extract_source_id(self, url: str) -> str | None:
         # Mogi URL patterns:
-        # /cho-thue-phong-tro/ha-noi/12345678.html
-        # /nha-cho-thue/12345678
+        # Mới: /quan-thanh-xuan/thue-phong-tro/.../cho-thue-...-id22662490
+        # Cũ:  /cho-thue-phong-tro/ha-noi/12345678.html
+        match = re.search(r"-id(\d{5,12})(?:/|\?|$)", url)
+        if match:
+            return match.group(1)
         match = re.search(r"/(\d{7,12})(?:\.html)?(?:\?|$)", url)
         return match.group(1) if match else None
 
