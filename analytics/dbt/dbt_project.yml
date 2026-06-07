@@ -1,0 +1,22 @@
+name: hanoi_rent_insights
+version: '1.0.0'
+config-version: 2
+
+profile: hanoi_rent_insights
+
+model-paths: ["models"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  hanoi_rent_insights:
+    staging:
+      +schema: silver          # đọc từ silver schema
+      +materialized: view      # staging = view, không tốn storage
+    marts:
+      +schema: gold            # ghi vào gold schema
+      +materialized: table     # marts = table, query nhanh

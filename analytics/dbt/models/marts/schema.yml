@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: dim_location
+    description: "Dimension địa điểm: province + ward + centroid lat/lng"
+    columns:
+      - name: location_key
+        tests: [unique, not_null]
+      - name: province
+        tests: [not_null]
+
+  - name: dim_property_type
+    description: "Dimension loại hình BĐS"
+    columns:
+      - name: property_type_key
+        tests: [unique, not_null]
+      - name: property_type_code
+        tests: [unique, not_null]
+
+  - name: dim_source
+    description: "Dimension nguồn dữ liệu"
+    columns:
+      - name: source_key
+        tests: [unique, not_null]
+      - name: source_name
+        tests: [unique, not_null]
+
+  - name: dim_date
+    description: "Dimension ngày đăng (2020–2030)"
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+      - name: full_date
+        tests: [unique, not_null]
+
+  - name: fct_listings
+    description: "Fact table trung tâm: 1 row/tin đăng"
+    columns:
+      - name: listing_key
+        tests: [unique, not_null]
+      - name: source_name
+        tests: [not_null]
+      - name: source_id
+        tests: [not_null]
+      - name: location_key
+        tests:
+          - relationships:
+              to: ref('dim_location')
+              field: location_key
+      - name: property_type_key
+        tests:
+          - relationships:
+              to: ref('dim_property_type')
+              field: property_type_key
+      - name: source_key
+        tests:
+          - relationships:
+              to: ref('dim_source')
+              field: source_key
+
+  - name: listings_for_map
+    description: "Denormalized cho web app map: tin có lat/lng hợp lệ, không outlier"
+    columns:
+      - name: listing_key
+        tests: [unique, not_null]
+      - name: latitude
+        tests: [not_null]
+      - name: longitude
+        tests: [not_null]

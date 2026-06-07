@@ -256,6 +256,7 @@ class MogiSpider(scrapy.Spider):
             "address": address,
             "description": description,
             "prop_type_text": prop_type_text,
+            "property_type": property_type,   # đã map sẵn, ETL đọc trực tiếp
             "image_count": len(image_urls),
             "scraped_at": datetime.utcnow().isoformat(),
         }

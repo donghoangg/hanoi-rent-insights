@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: silver
+    schema: silver
+    description: "Silver layer — dữ liệu đã làm sạch từ bronze"
+    tables:
+      - name: listings
+        description: "Tin đăng thuê nhà đã chuẩn hoá"
+        columns:
+          - name: source_name
+            tests: [not_null]
+          - name: source_id
+            tests: [not_null]

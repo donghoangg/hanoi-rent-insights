@@ -255,6 +255,34 @@ COMMENT ON TABLE gold.price_by_area IS
 -- =============================================================
 -- MONITORING — Giám sát chất lượng vùng đệm (Bronze)
 -- =============================================================
+
+-- Bảng lịch sử từng lần chạy spider — nền tảng cho trend chart
+CREATE TABLE IF NOT EXISTS bronze.scrape_runs (
+    run_id          BIGSERIAL PRIMARY KEY,
+    source_name     VARCHAR(50)  NOT NULL,          -- 'nhatot' | 'mogi'
+    spider_name     VARCHAR(100) NOT NULL,           -- tên spider Scrapy
+    started_at      TIMESTAMP    NOT NULL,
+    finished_at     TIMESTAMP,
+    duration_sec    NUMERIC(10, 2),
+    total_scraped   INT NOT NULL DEFAULT 0,          -- tổng item spider gặp
+    pass_count      INT NOT NULL DEFAULT 0,          -- vào bronze.listings_raw
+    quarantine_count INT NOT NULL DEFAULT 0,         -- vào bronze.listings_quarantine
+    duplicate_count INT NOT NULL DEFAULT 0,          -- bị DuplicatesPipeline bỏ qua
+    error_count     INT NOT NULL DEFAULT 0,          -- lỗi DB insert
+    pass_rate_pct   NUMERIC(5, 1),                   -- tính tự động khi insert
+    status          VARCHAR(20) DEFAULT 'running',   -- 'running' | 'finished' | 'failed'
+    note            TEXT                             -- thông tin thêm nếu cần
+);
+
+CREATE INDEX IF NOT EXISTS idx_scrape_runs_source
+    ON bronze.scrape_runs (source_name, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scrape_runs_status
+    ON bronze.scrape_runs (status);
+
+COMMENT ON TABLE bronze.scrape_runs IS
+    'Lịch sử từng lần chạy spider: thời gian, số tin pass/quarantine/duplicate. Dùng cho trend chart.';
+
+
 -- View tổng quan: số tin pass / quarantine / tỉ lệ pass theo từng nguồn.
 CREATE OR REPLACE VIEW bronze.v_ingestion_monitor AS
 WITH last_raw AS (
