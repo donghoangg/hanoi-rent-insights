@@ -269,7 +269,8 @@ Lập lịch: GitHub Actions cron (free 2000 phút/tháng) chạy bước 1–4 
 ## 9. Việc cần làm tiếp (gợi ý roadmap còn lại)
 
 - [ ] Chốt 1 đường build Gold (khuyến nghị: dbt), dọn `silver_to_gold.py`.
-- [ ] Mang `duplicate_group_id` + cờ `is_duplicate` lên `fct_listings`.
+- [x] **(ĐÃ FIX 13/06/2026)** Mang `duplicate_group_id` + cờ `is_duplicate_secondary` lên `fct_listings` (qua `stg_listings`); `listings_for_map` đã lọc `is_duplicate_secondary = FALSE` → bỏ 53 tin trùng, KPI không còn đếm trùng.
+- [x] **(ĐÃ FIX 13/06/2026)** ETL `bronze_to_silver.py` nay ghi `price_per_m2` (+ `deposit_vnd`) xuống Silver; kèm `infra/db/migration_backfill_price_per_m2.sql` backfill data hiện có (idempotent, không mất dữ liệu).
 - [ ] Viết endpoint FastAPI thống kê cho dashboard native.
 - [ ] Port dashboard demo (đã prototype) thành component Next.js + Recharts.
 - [ ] Kiểm tra coverage `posted_at`/`area_m2` để chốt KPI làm được.

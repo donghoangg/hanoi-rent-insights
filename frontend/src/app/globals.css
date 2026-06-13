@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "leaflet/dist/leaflet.css";
+@import "leaflet.markercluster/dist/MarkerCluster.css";
+@import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ---- Marker nhãn giá tuỳ biến (Leaflet divIcon) ---- */
+.price-marker {
+  background: transparent;
+  border: none;
+}
+
+.price-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  border: 1.5px solid #ffffff;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.price-pill::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+}
+
+.price-pill.seg-thap {
+  background: #16a34a;
+}
+.price-pill.seg-trung_binh {
+  background: #2563eb;
+}
+.price-pill.seg-cao {
+  background: #dc2626;
+}
+
+/* ---- Nhãn chủ quyền Hoàng Sa / Trường Sa (Việt Nam) ---- */
+.sovereignty-marker {
+  background: transparent;
+  border: none;
+}
+
+.sovereignty-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #b91c1c;
+  white-space: nowrap;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
+  pointer-events: none;
+}
+
+/* ---- Popup gọn gàng ---- */
+.leaflet-popup-content {
+  margin: 0;
+  width: 260px !important;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Thanh cuộn mảnh cho sidebar */
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}

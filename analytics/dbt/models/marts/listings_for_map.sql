@@ -35,6 +35,8 @@ price_percentiles AS (
     WHERE f.price_status = 'ok'
       AND f.price_vnd IS NOT NULL
       AND f.is_price_outlier = FALSE
+      -- Khu trung cross-source (percentile cung bo tin trung)
+      AND f.is_duplicate_secondary = FALSE
     GROUP BY f.property_type_key
 ),
 
@@ -105,3 +107,5 @@ CROSS JOIN price_overall po
 WHERE f.price_status = 'ok'
   AND f.price_vnd IS NOT NULL
   AND f.is_price_outlier = FALSE
+  -- Khu trung cross-source: chi giu 1 dai dien moi nhom trung
+  AND f.is_duplicate_secondary = FALSE

@@ -1,0 +1,22 @@
+# Render Blueprint cho backend FastAPI.
+# Deploy: tạo "New +" → "Blueprint" trên dashboard Render, trỏ tới repo này.
+# (Hoặc tạo Web Service thủ công với các lệnh build/start bên dưới.)
+
+services:
+  - type: web
+    name: hanoirent-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # nhập thủ công trong dashboard (secret)
+      - key: GOLD_SCHEMA
+        value: gold
+      - key: CORS_ORIGINS
+        sync: false # vd: https://hanoirent.vercel.app
+      - key: PYTHON_VERSION
+        value: "3.11"

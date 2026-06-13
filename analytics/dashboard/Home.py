@@ -18,6 +18,7 @@ st.markdown(
     Dashboard phân tích thị trường thuê nhà Hà Nội.
 
     Dùng menu bên trái để chuyển trang:
+    - **Phân tích** — Mặt bằng giá theo khu vực, phân khúc, tiện ích (cho người đi thuê)
     - **Monitoring** — Theo dõi quá trình cào dữ liệu (scraping runs, pass rate, quarantine)
     - **Quality** — Kiểm tra chất lượng dữ liệu Silver (outlier, duplicate, completeness)
     """

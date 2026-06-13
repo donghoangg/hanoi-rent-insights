@@ -6,13 +6,17 @@
 CREATE SCHEMA IF NOT EXISTS silver;
 
 -- -------------------------------------------------------------
--- Bảng geocode cache — tránh gọi Nominatim lại cho cùng địa chỉ
+-- Bảng geocode cache — tránh gọi geocode lại cho cùng địa chỉ
+-- Schema phải khớp với code trong etl/bronze_to_silver.py:
+--   INSERT (address_key, latitude, longitude, status, provider)
+--   SELECT (address_key, latitude, longitude, status)
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS silver.geocode_cache (
     address_key  TEXT PRIMARY KEY,          -- normalized address string dùng làm key
     latitude     NUMERIC(10, 7),
     longitude    NUMERIC(10, 7),
-    geocode_src  VARCHAR(20),               -- 'nominatim' | 'ward_centroid' | 'failed'
+    status       VARCHAR(20) DEFAULT 'success',  -- 'success' | 'failed'
+    provider     VARCHAR(50),               -- 'google' | 'nominatim' | 'ward_centroid' | 'failed'
     created_at   TIMESTAMP DEFAULT NOW()
 );
 

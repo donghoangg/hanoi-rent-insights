@@ -178,10 +178,18 @@ class SupabaseUploader:
 def _read_pending_batch(
     conn: psycopg2.extensions.connection,
     statuses: tuple[str, ...],
-    offset: int,
+    after_id: int,
     limit: int,
 ) -> list[dict]:
-    """Đọc batch listing cần xử lý thumbnail."""
+    """
+    Đọc batch listing cần xử lý thumbnail.
+
+    Dùng con trỏ theo listing_id (cursor-based) thay vì OFFSET: luôn lấy các tin
+    có listing_id > after_id. Tránh bug OFFSET — vì sau mỗi batch các tin đã xử lý
+    đổi status (không còn pending), nếu dùng OFFSET cố định thì offset nhảy qua cả
+    những tin chưa xử lý → bỏ sót data. Cursor-based cũng tránh lặp vô hạn ở chế độ
+    --retry-failed (tin failed mãi vẫn không bị đọc lại trong cùng một lần chạy).
+    """
     placeholders = ", ".join(["%s"] * len(statuses))
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
@@ -190,10 +198,11 @@ def _read_pending_batch(
             FROM silver.listings
             WHERE thumbnail_status IN ({placeholders})
               AND original_thumbnail_url IS NOT NULL
+              AND listing_id > %s
             ORDER BY listing_id
-            LIMIT %s OFFSET %s
+            LIMIT %s
             """,
-            (*statuses, limit, offset),
+            (*statuses, after_id, limit),
         )
         return [dict(row) for row in cur.fetchall()]
 
@@ -300,7 +309,7 @@ def run(
     total_processed = 0
     total_success = 0
     total_failed = 0
-    offset = 0
+    after_id = 0  # con trỏ: chỉ lấy tin có listing_id > after_id
 
     while True:
         effective_limit = batch_size
@@ -309,11 +318,11 @@ def run(
             if effective_limit <= 0:
                 break
 
-        rows = _read_pending_batch(conn, statuses, offset, effective_limit)
+        rows = _read_pending_batch(conn, statuses, after_id, effective_limit)
         if not rows:
             break
 
-        logger.info("Batch offset=%d: %d listings to process", offset, len(rows))
+        logger.info("Batch after_id=%d: %d listings to process", after_id, len(rows))
 
         # Chạy song song với ThreadPoolExecutor
         results: list[DownloadResult] = []
@@ -336,7 +345,8 @@ def run(
         _update_batch(conn, results)
 
         total_processed += len(rows)
-        offset += len(rows)
+        # Đẩy con trỏ tới listing_id lớn nhất đã đọc (rows đã ORDER BY listing_id)
+        after_id = rows[-1]["listing_id"]
 
         logger.info(
             "Progress: %d processed, %d success, %d failed",

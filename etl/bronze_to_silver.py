@@ -4,7 +4,9 @@ ETL: Bronze → Silver
 Đọc từ bronze.listings_raw, transform, upsert vào silver.listings.
 
 Nguồn hỗ trợ: nhatot, mogi
-Geocoding: nhatot dùng lat/lng sẵn có từ provider; mogi dùng Nominatim.
+Geocoding: tất cả tin được geocode lại bằng Google Maps Geocoding API
+(provider chính, chính xác nhất). Thứ tự fallback: Google → Nominatim →
+ward_centroid → tọa độ provider có sẵn (nhatot). Cần GOOGLE_MAPS_API_KEY trong env.
 
 Chạy:
     python -m etl.bronze_to_silver
@@ -28,6 +30,7 @@ from typing import Optional
 
 import psycopg2
 import psycopg2.extras
+import requests
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from geopy.geocoders import Nominatim
 
@@ -45,6 +48,11 @@ MIN_PRICE = 500_000       # 500k VND/tháng
 MAX_PRICE = 100_000_000   # 100 triệu VND/tháng
 
 BATCH_SIZE = 100
+
+# Google Maps Geocoding API — provider chính (chính xác nhất).
+# Đọc key từ env; nếu không có key → tự bỏ qua Google, fallback Nominatim.
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
+GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 # Centroid từng phường phổ biến Hà Nội (fallback geocoding).
 # Lat/lng lấy từ trung tâm hành chính phường trên OSM.
@@ -279,6 +287,8 @@ class SilverRow:
     title: Optional[str] = None
     description: Optional[str] = None
     price_vnd: Optional[int] = None
+    price_per_m2: Optional[int] = None      # = price_vnd / area_m2 (làm tròn), điền khi đủ cả 2
+    deposit_vnd: Optional[int] = None
     area_m2: Optional[float] = None
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
@@ -317,14 +327,24 @@ class SilverRow:
 
 class GeocoderWrapper:
     """
-    Wrapper quanh Nominatim với cache DB.
-    Fallback xuống ward centroid nếu Nominatim fail.
+    Wrapper geocoding với cache DB.
+    Thứ tự provider: Google Maps Geocoding API (chính) → Nominatim → ward centroid.
+    Google cho địa chỉ chính xác nhất; Nominatim/centroid là fallback khi hết
+    quota hoặc không có API key.
     """
 
     def __init__(self, conn: psycopg2.extensions.connection):
         self._conn = conn
         self._geolocator = Nominatim(user_agent="hanoi-rent-insights-etl/1.0")
         self._mem_cache: dict[str, tuple[Optional[float], Optional[float], str]] = {}
+        self._google_key = GOOGLE_MAPS_API_KEY
+        self._google_session = requests.Session() if self._google_key else None
+        self._google_disabled = not bool(self._google_key)
+        if self._google_disabled:
+            logger.warning(
+                "GOOGLE_MAPS_API_KEY chưa được cấu hình — bỏ qua Google, "
+                "dùng Nominatim làm provider chính."
+            )
         self._load_db_cache()
 
     def _load_db_cache(self):
@@ -354,30 +374,39 @@ class GeocoderWrapper:
     def geocode(self, address: str, ward: Optional[str] = None) -> tuple[Optional[float], Optional[float], str]:
         """
         Trả về (lat, lng, source).
-        source: 'nominatim' | 'ward_centroid' | 'failed'
+        source: 'google' | 'nominatim' | 'ward_centroid' | 'failed'
+        Thứ tự ưu tiên: Google → Nominatim → ward centroid.
         """
         key = self._cache_key(address)
+        full_query = address + ", Hà Nội, Việt Nam"
 
         # 1. Kiểm tra memory cache
         if key in self._mem_cache:
             return self._mem_cache[key]
 
-        # 2. Thử Nominatim với địa chỉ đầy đủ
-        lat, lng, src = self._try_nominatim(address + ", Hà Nội, Việt Nam")
+        # 2. Google Maps Geocoding API (provider chính, chính xác nhất)
+        lat, lng, src = self._try_google(full_query)
 
-        # 3. Nếu fail, thử với ward + Hà Nội
+        # 3. Fallback: Nominatim với địa chỉ đầy đủ
+        if lat is None:
+            lat, lng, src = self._try_nominatim(full_query)
+
+        # 4. Nếu vẫn fail, thử với ward + Hà Nội (Google trước, rồi Nominatim)
         if lat is None and ward:
             ward_key = self._cache_key(ward + ", Hà Nội")
             if ward_key in self._mem_cache:
                 lat, lng, src = self._mem_cache[ward_key]
             else:
-                lat, lng, src = self._try_nominatim(ward + ", Hà Nội, Việt Nam")
+                ward_query = ward + ", Hà Nội, Việt Nam"
+                lat, lng, src = self._try_google(ward_query)
+                if lat is None:
+                    lat, lng, src = self._try_nominatim(ward_query)
                 if lat is not None:
                     # Cache riêng cho ward-level query
                     self._mem_cache[ward_key] = (lat, lng, src)
                     self._save_to_db(ward_key, lat, lng, src)
 
-        # 4. Fallback: ward centroid hardcode
+        # 5. Fallback cuối: ward centroid hardcode
         if lat is None and ward:
             centroid = self._lookup_ward_centroid(ward)
             if centroid:
@@ -387,6 +416,49 @@ class GeocoderWrapper:
         self._mem_cache[key] = result
         self._save_to_db(key, lat, lng, result[2])
         return result
+
+    def _try_google(self, query: str) -> tuple[Optional[float], Optional[float], Optional[str]]:
+        """
+        Gọi Google Maps Geocoding API. Trả (lat, lng, 'google') hoặc (None, None, None).
+        Tự tắt vĩnh viễn (self._google_disabled) nếu hết quota / key sai để
+        không gọi lại trong cùng phiên chạy.
+        """
+        if self._google_disabled or self._google_session is None:
+            return None, None, None
+        try:
+            resp = self._google_session.get(
+                GOOGLE_GEOCODE_URL,
+                params={
+                    "address": query,
+                    "key": self._google_key,
+                    "language": "vi",
+                    "region": "vn",
+                    # Giới hạn kết quả về Việt Nam để tăng độ chính xác
+                    "components": "country:VN",
+                },
+                timeout=10,
+            )
+            data = resp.json()
+            status = data.get("status")
+            if status == "OK" and data.get("results"):
+                loc = data["results"][0]["geometry"]["location"]
+                return loc["lat"], loc["lng"], "google"
+            if status == "ZERO_RESULTS":
+                return None, None, None
+            if status in ("OVER_QUERY_LIMIT", "REQUEST_DENIED", "OVER_DAILY_LIMIT"):
+                # Hết quota hoặc key sai → tắt Google, chuyển hẳn sang Nominatim
+                logger.error(
+                    "Google Geocoding tắt do status=%s (%s). Fallback Nominatim.",
+                    status, data.get("error_message", ""),
+                )
+                self._google_disabled = True
+            else:
+                logger.warning("Google Geocoding status=%s cho '%s'", status, query[:60])
+        except requests.RequestException as exc:
+            logger.warning("Google Geocoding lỗi mạng cho '%s': %s", query[:60], exc)
+        except Exception as exc:
+            logger.error("Google Geocoding lỗi không mong đợi: %s", exc)
+        return None, None, None
 
     def _try_nominatim(self, query: str) -> tuple[Optional[float], Optional[float], Optional[str]]:
         """Gọi Nominatim, rate-limit 1 req/s. Trả (lat, lng, 'nominatim') hoặc (None, None, None)."""
@@ -780,7 +852,7 @@ _UPSERT_SQL = """
 INSERT INTO silver.listings (
     source_name, source_id, source_url,
     title, description,
-    price_vnd, area_m2, bedrooms, bathrooms,
+    price_vnd, price_per_m2, deposit_vnd, area_m2, bedrooms, bathrooms,
     property_type, furnishing_level,
     address, province, ward,
     latitude, longitude, geocode_status,
@@ -796,6 +868,8 @@ ON CONFLICT (source_name, source_id) DO UPDATE SET
     title                  = EXCLUDED.title,
     description            = EXCLUDED.description,
     price_vnd              = EXCLUDED.price_vnd,
+    price_per_m2           = EXCLUDED.price_per_m2,
+    deposit_vnd            = EXCLUDED.deposit_vnd,
     area_m2                = EXCLUDED.area_m2,
     bedrooms               = EXCLUDED.bedrooms,
     bathrooms              = EXCLUDED.bathrooms,
@@ -836,6 +910,7 @@ def _row_to_tuple(r: SilverRow):
     # Lưu ý: khi đọc từ DB cache, geocode_source có thể là status value ('success','failed')
     # thay vì provider name ('nominatim','provider') — cần handle cả 2 trường hợp
     geocode_src_map = {
+        "google":        "success",
         "provider":      "success",
         "nominatim":     "success",
         "ward_centroid": "centroid",
@@ -848,7 +923,7 @@ def _row_to_tuple(r: SilverRow):
     return (
         r.source_name, r.source_id, r.source_url,
         r.title, r.description,
-        r.price_vnd, r.area_m2, r.bedrooms, r.bathrooms,
+        r.price_vnd, r.price_per_m2, r.deposit_vnd, r.area_m2, r.bedrooms, r.bathrooms,
         r.property_type, r.furnishing_level,
         r.address, r.province, r.ward,
         r.latitude, r.longitude, geocode_status,
@@ -914,23 +989,34 @@ def _transform_one(bronze_row: dict, geocoder: GeocoderWrapper) -> Optional[Silv
         province, ward = _extract_address_parts(address)
 
     # 5. Geocoding
-    lat = parsed.get("latitude")
-    lng = parsed.get("longitude")
-    geocode_source = parsed.get("geocode_source")
+    # Lat/lng có sẵn từ provider (nhatot) — dùng làm fallback nếu Google fail.
+    provider_lat = parsed.get("latitude")
+    provider_lng = parsed.get("longitude")
+    provider_source = parsed.get("geocode_source")
 
-    if lat is None or lng is None:
-        # Chỉ geocode nếu có địa chỉ hoặc ward
-        if address or ward:
-            query_address = address or (ward + ", Hà Nội")
-            lat, lng, geocode_source = geocoder.geocode(query_address, ward=ward)
-        else:
-            geocode_source = "failed"
+    # Luôn geocode lại bằng Google (provider chính) để đồng nhất nguồn & độ chính xác.
+    lat, lng, geocode_source = None, None, None
+    if address or ward:
+        query_address = address or (ward + ", Hà Nội")
+        lat, lng, geocode_source = geocoder.geocode(query_address, ward=ward)
+
+    # Nếu geocode thất bại nhưng provider có sẵn tọa độ → giữ tọa độ provider.
+    if lat is None and provider_lat is not None and provider_lng is not None:
+        lat, lng, geocode_source = provider_lat, provider_lng, provider_source or "provider"
+
+    if lat is None:
+        geocode_source = "failed"
 
     # Validate lat/lng hợp lệ cho Hà Nội (bounding box xấp xỉ)
     if lat is not None and lng is not None:
         if not (20.5 < float(lat) < 21.5 and 105.3 < float(lng) < 106.1):
             logger.debug("Lat/lng out of Hanoi bbox for %s:%s — set to None", source_name, source_id)
             lat, lng, geocode_source = None, None, "failed"
+
+    # Lưu ý: KHÔNG jitter tọa độ ở tầng ETL. DB giữ tọa độ gốc thật từ geocode.
+    # Việc tản marker (tránh chồng khi nhiều tin cùng phường) xử lý ở frontend
+    # React khi render (jitter hiển thị hoặc marker clustering) — theo đúng
+    # KE_HOACH_DU_AN.md.
 
     # 6. Amenities
     amenities = _extract_amenities(parsed.get("title"), parsed.get("description"))
@@ -951,6 +1037,20 @@ def _transform_one(bronze_row: dict, geocoder: GeocoderWrapper) -> Optional[Silv
             posted_at = posted_at_str[:10]
         # Nếu định dạng khác → để None (không đoán mò)
 
+    # price_per_m2: chỉ tính khi có cả giá hợp lệ và diện tích > 0
+    price_per_m2 = None
+    if price_vnd and area_m2 and area_m2 > 0:
+        price_per_m2 = int(round(price_vnd / area_m2))
+
+    # deposit_vnd: lấy từ parsed nếu spider có trích (hiện đa số None)
+    deposit_raw = parsed.get("deposit_vnd")
+    deposit_vnd = None
+    if deposit_raw is not None:
+        try:
+            deposit_vnd = int(float(str(deposit_raw).replace(",", "").strip()))
+        except (ValueError, TypeError):
+            deposit_vnd = None
+
     return SilverRow(
         source_name=source_name,
         source_id=source_id,
@@ -958,6 +1058,8 @@ def _transform_one(bronze_row: dict, geocoder: GeocoderWrapper) -> Optional[Silv
         title=parsed.get("title"),
         description=parsed.get("description"),
         price_vnd=price_vnd,
+        price_per_m2=price_per_m2,
+        deposit_vnd=deposit_vnd,
         area_m2=area_m2,
         bedrooms=bedrooms,
         bathrooms=bathrooms,

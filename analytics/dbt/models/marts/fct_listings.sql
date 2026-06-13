@@ -78,6 +78,10 @@ SELECT
     stg.geocode_status,
     stg.thumbnail_url,
 
+    -- Duplicate cross-source (mang tu silver len de KPI khong dem trung)
+    stg.duplicate_group_id,
+    stg.is_duplicate_secondary,
+
     -- Dates
     stg.posted_at,
     stg.created_at                          AS silver_created_at,

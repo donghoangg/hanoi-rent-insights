@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="140" viewBox="0 0 260 140">
+  <rect width="260" height="140" fill="#e2e8f0"/>
+  <g fill="#94a3b8">
+    <path d="M104 54h52a6 6 0 0 1 6 6v28a6 6 0 0 1-6 6h-52a6 6 0 0 1-6-6V60a6 6 0 0 1 6-6zm0 6v22l14-12 8 7 14-13 12 11V60h-58z"/>
+    <circle cx="118" cy="68" r="4"/>
+  </g>
+  <text x="130" y="116" font-family="Inter,sans-serif" font-size="11" fill="#64748b" text-anchor="middle">Không có ảnh</text>
+</svg>

@@ -57,6 +57,11 @@ models:
           - relationships:
               to: ref('dim_source')
               field: source_key
+      - name: is_duplicate_secondary
+        description: "TRUE neu tin la ban trung thu cap cross-source (khong phai dai dien nhom). Loc FALSE khi dem de tranh trung."
+        tests: [not_null]
+      - name: duplicate_group_id
+        description: "ID nhom trung cross-source = MIN(listing_id) cua nhom. NULL neu khong trung."
 
   - name: listings_for_map
     description: "Denormalized cho web app map: tin có lat/lng hợp lệ, không outlier"

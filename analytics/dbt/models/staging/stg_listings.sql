@@ -56,6 +56,17 @@ SELECT
     is_price_outlier,
     is_negotiable,
 
+    -- Duplicate cross-source (gan co o silver_quality.py; group_id = MIN(listing_id) cua nhom)
+    listing_id                                      AS silver_listing_id,
+    duplicate_group_id,
+    -- is_duplicate_secondary = TRUE neu tin KHONG phai dai dien nhom trung
+    CASE
+        WHEN duplicate_group_id IS NOT NULL
+             AND listing_id <> duplicate_group_id
+        THEN TRUE
+        ELSE FALSE
+    END                                             AS is_duplicate_secondary,
+
     -- Thumbnail
     COALESCE(self_thumbnail_url, original_thumbnail_url) AS thumbnail_url,
 
