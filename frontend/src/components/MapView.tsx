@@ -123,7 +123,8 @@ export default function MapView({ listings }: Props) {
       ))}
       <MarkerClusterGroup
         chunkedLoading
-        maxClusterRadius={48}
+        maxClusterRadius={28}
+        disableClusteringAtZoom={16}
         spiderfyOnMaxZoom
         showCoverageOnHover={false}
       >
