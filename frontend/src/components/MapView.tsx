@@ -33,8 +33,9 @@ function seededJitter(key: number): [number, number] {
   const r1 = (s - Math.floor(s)) * 2 - 1;
   const s2 = Math.sin(key * 78.233) * 12543.123;
   const r2 = (s2 - Math.floor(s2)) * 2 - 1;
-  const dLat = r1 * 0.0009;
-  const dLng = (r2 * 0.0009) / Math.cos((HANOI_CENTER[0] * Math.PI) / 180);
+  // 0.0027 độ vĩ ≈ 300m (1 độ ≈ 111km). Lệch tối đa ±300m do r1,r2 ∈ [-1,1].
+  const dLat = r1 * 0.0027;
+  const dLng = (r2 * 0.0027) / Math.cos((HANOI_CENTER[0] * Math.PI) / 180);
   return [dLat, dLng];
 }
 
