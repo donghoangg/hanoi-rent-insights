@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FilterOptions, FilterState } from "@/lib/types";
+import type { FilterOptions, FilterState } from "../lib/types";
 import {
   FILTERABLE_AMENITIES,
   amenityLabel,
   propertyTypeLabel,
-} from "@/lib/labels";
-import { formatInt, formatVNDCompact } from "@/lib/format";
+} from "../lib/labels";
+import { formatInt, formatVNDCompact } from "../lib/format";
 
 interface Props {
   options: FilterOptions | null;

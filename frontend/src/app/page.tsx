@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import FilterSidebar from "@/components/FilterSidebar";
-import { fetchFilterOptions, fetchListings } from "@/lib/api";
-import type { FilterOptions, FilterState, Listing } from "@/lib/types";
+import FilterSidebar from "../components/FilterSidebar";
+import { fetchFilterOptions, fetchListings } from "../lib/api";
+import type { FilterOptions, FilterState, Listing } from "../lib/types";
 
 // Leaflet cần window → tắt SSR.
 const MapView = dynamic(() => import("@/components/MapView"), {

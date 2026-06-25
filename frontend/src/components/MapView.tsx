@@ -4,9 +4,9 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
-import type { Listing } from "@/lib/types";
-import { formatVNDFull } from "@/lib/format";
-import { AMENITY_LABELS, propertyTypeLabel } from "@/lib/labels";
+import type { Listing } from "../lib/types";
+import { formatVNDFull } from "../lib/format";
+import { AMENITY_LABELS, propertyTypeLabel } from "../lib/labels";
 
 const HANOI_CENTER: [number, number] = [21.0285, 105.8542];
 

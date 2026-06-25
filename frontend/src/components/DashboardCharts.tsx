@@ -26,8 +26,8 @@ import type {
   SegmentShare,
   TypeShare,
   WardPrice,
-} from "@/lib/types";
-import { formatVNDCompact } from "@/lib/format";
+} from "../lib/types";
+import { formatVNDCompact } from "../lib/format";
 import {
   SEGMENT_COLORS,
   SEGMENT_LABELS,
@@ -35,7 +35,7 @@ import {
   propertyLabelColor,
   propertyTypeColor,
   propertyTypeLabel,
-} from "@/lib/labels";
+} from "../lib/labels";
 
 const GOOD = "#16a34a";
 const BAD = "#dc2626";

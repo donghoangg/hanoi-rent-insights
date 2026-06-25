@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import FilterSidebar from "@/components/FilterSidebar";
-import KpiCard from "@/components/KpiCard";
+import FilterSidebar from "../../components/FilterSidebar";
+import KpiCard from "../../components/KpiCard";
 import {
   AmenityPremiumChart,
   AmenityPrevalenceChart,
@@ -13,10 +13,10 @@ import {
   SegmentChart,
   TypeShareChart,
   WardRankChart,
-} from "@/components/DashboardCharts";
-import { fetchAnalytics, fetchFilterOptions } from "@/lib/api";
-import type { AnalyticsResponse, FilterOptions, FilterState } from "@/lib/types";
-import { formatInt, formatVNDCompact } from "@/lib/format";
+} from "../../components/DashboardCharts";
+import { fetchAnalytics, fetchFilterOptions } from "../../lib/api";
+import type { AnalyticsResponse, FilterOptions, FilterState } from "../../lib/types";
+import { formatInt, formatVNDCompact } from "../../lib/format";
 
 const EMPTY_FILTERS: FilterState = {
   minPrice: null,
